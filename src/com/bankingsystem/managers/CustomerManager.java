@@ -12,6 +12,8 @@ import com.bankingsystem.entities.*;
 public class CustomerManager {
 	private static CustomerManager instance = null;
 	DataStore database;
+	User currentUser = null;
+	boolean isLoggedIn = false;
 
 	private CustomerManager() {
 	}
@@ -28,32 +30,49 @@ public class CustomerManager {
 	}
 
 	public void submitNewAccountRequest() {
-
+		
 	}
 
 	public void depositMoney(String amount, String accountNo) {
-		IAccountDAO accountdao = new AccountDAO(database);
-		ITransactionDAO tDAO = new TransactionDAO(database);
-		accountdao.getAccount(accountdao.mapNoToId(accountNo)).credit(new BigDecimal(amount));
-		tDAO.commitTransaction(new Transaction(accountdao.getAccount(accountdao.mapNoToId(accountNo)), LocalDate.now(),
-				LocalTime.now(), TransactionType.CREDIT, new BigDecimal(amount)));
+		if (isLoggedIn) {
+			IAccountDAO accountdao = new AccountDAO(database);
+			ITransactionDAO tDAO = new TransactionDAO(database);
+			accountdao.getAccount(accountdao.mapNoToId(accountNo)).credit(new BigDecimal(amount));
+			tDAO.commitTransaction(new Transaction(accountdao.getAccount(accountdao.mapNoToId(accountNo)),
+					LocalDate.now(), LocalTime.now(), TransactionType.CREDIT, new BigDecimal(amount)));
+		}
 
 	}
 
-	public void withdrawMoney(String amount, String accountNo) throws Exception{
-		IAccountDAO accountdao = new AccountDAO(database);
-		ITransactionDAO tDAO = new TransactionDAO(database);
-		accountdao.getAccount(accountdao.mapNoToId(accountNo)).debit(new BigDecimal(amount));
-		tDAO.commitTransaction(new Transaction(accountdao.getAccount(accountdao.mapNoToId(accountNo)), LocalDate.now(),
-				LocalTime.now(), TransactionType.DEBIT, new BigDecimal(amount)));
+	public void withdrawMoney(String amount, String accountNo) throws Exception {
+		if (isLoggedIn) {
+			IAccountDAO accountdao = new AccountDAO(database);
+			ITransactionDAO tDAO = new TransactionDAO(database);
+			accountdao.getAccount(accountdao.mapNoToId(accountNo)).debit(new BigDecimal(amount));
+			tDAO.commitTransaction(new Transaction(accountdao.getAccount(accountdao.mapNoToId(accountNo)),
+					LocalDate.now(), LocalTime.now(), TransactionType.DEBIT, new BigDecimal(amount)));
+		}
 	}
 
-	public void transferMoney(String sourceAccountNo, String targetAccountNo, BigDecimal amount) {
-
+	public void transferMoney(String sourceAccountNo, String targetAccountNo, String amount) throws Exception {
+		if (isLoggedIn) {
+			IAccountDAO accountdao = new AccountDAO(database);
+			ITransactionDAO tDAO = new TransactionDAO(database);
+			accountdao.getAccount(accountdao.mapNoToId(sourceAccountNo)).debit(new BigDecimal(amount));
+			tDAO.commitTransaction(new Transaction(accountdao.getAccount(accountdao.mapNoToId(sourceAccountNo)),
+					LocalDate.now(), LocalTime.now(), TransactionType.MONEY_TRANSFER, new BigDecimal(amount)));
+			accountdao.getAccount(accountdao.mapNoToId(targetAccountNo)).credit(new BigDecimal(amount));
+			tDAO.commitTransaction(new Transaction(accountdao.getAccount(accountdao.mapNoToId(sourceAccountNo)),
+					LocalDate.now(), LocalTime.now(), TransactionType.MONEY_TRANSFER, new BigDecimal(amount)));
+		}
 	}
 
 	public void modifyPasword(String oldPassword, String newPassword) {
-
+		if(currentUser.getCredential().getPassword().equals(oldPassword)) {
+			IUserDAO userDAO = new UserDAO(database);
+			currentUser.setCredential(new UserCredential(currentUser.getCredential().getuserId(),newPassword));
+			userDAO.updateUserDetails(currentUser);
+		}
 	}
 
 	public void modifyEmail(String newEmail) {
@@ -73,11 +92,15 @@ public class CustomerManager {
 	}
 
 	public void login(String userId, String password) {
-
+		IUserDAO userDAO = new UserDAO(database);
+		if (userDAO.getUser(new UserCredential(userId, password)) != null) {
+			currentUser = userDAO.getUser(new UserCredential(userId, password));
+			isLoggedIn = true;
+		}
 	}
 
 	public void logout() {
-
+		isLoggedIn =false;
 	}
 
 	private void submitMoneyTransferOverLimitRequest() {
